@@ -1,5 +1,2 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-	<ItemGroup>
-		<Reference Include="System.ServiceModel" />
-	</ItemGroup>
 </Project>

@@ -46,10 +46,12 @@ namespace WcfProxyHelper
             var moduleBuilder = CreateModuleBuilder(assemblyBuilder, saveAssembly);
             var clientType = CreateClientType(serviceContract, moduleBuilder);
 
+#if NET48
             if (saveAssembly)
             {
                 assemblyBuilder.Save(assemblyName.Name + ".dll");
             }
+#endif
 
             return clientType;
         }
@@ -65,13 +67,21 @@ namespace WcfProxyHelper
                 {
                     Directory.CreateDirectory(AssemblyOutputDirectory);
                 }
-
+#if NET48
                 assemblyBuilder = appDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndSave, AssemblyOutputDirectory);
                 saveAssembly = true;
+#else
+                assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+                saveAssembly = false; // Not supported.
+#endif
             }
             else
             {
+#if NET48
                 assemblyBuilder = appDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+#else
+                assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+#endif
             }
 
             // See http://blogs.msdn.com/b/rmbyers/archive/2005/06/26/432922.aspx. This should be
@@ -90,10 +100,18 @@ namespace WcfProxyHelper
 
             if (saveAssembly)
             {
+#if NET48
                 return assemblyBuilder.DefineDynamicModule(assemblyFileName, assemblyFileName + ".dll", DebugSupport);
+#else
+                return assemblyBuilder.DefineDynamicModule(assemblyFileName);
+#endif
             }
 
+#if NET48
             return assemblyBuilder.DefineDynamicModule(assemblyFileName, DebugSupport);
+#else
+            return assemblyBuilder.DefineDynamicModule(assemblyFileName);
+#endif
         }
 
         private Type CreateClientType(Type serviceContract, ModuleBuilder moduleBuilder)
@@ -335,10 +353,12 @@ namespace WcfProxyHelper
                 }
             }
 
+#if NET48
             foreach (var methodInfo in interfaceType.GetMethods().Where(m => m.Name.Contains("UI")))
             {
                 AddPassThroughMethod(typeBuilder, methodInfo);
             }
+#endif
         }
 
         private MethodBuilder AddPassThroughMethod(TypeBuilder typeBuilder, MethodInfo methodInfo)

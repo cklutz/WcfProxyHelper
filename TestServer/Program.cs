@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using System.ServiceModel;
-using System.ServiceModel.Description;
 using TestContracts;
 using WcfProxyHelper;
+using System.ServiceModel;
+using System.ServiceModel.Description;
 
 namespace TestServer
 {
@@ -21,6 +21,7 @@ namespace TestServer
         {
             try
             {
+#if NET48
                 var host = new ServiceHost(typeof(Calculator));
                 host.AddServiceEndpoint(typeof (ICalculator), new NetTcpBinding(),
                     "net.tcp://localhost:12345/Calculator/ICalculator");
@@ -28,6 +29,10 @@ namespace TestServer
                 Console.WriteLine("Hit any key to exit...");
                 Console.ReadKey();
                 return 0;
+#else
+                // TODO: Base upon ASP.NET and use CoreWCF.
+                throw new NotImplementedException();
+#endif
             }
             catch (Exception ex)
             {

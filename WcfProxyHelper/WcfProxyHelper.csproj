@@ -1,7 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-	  <Reference Include="System.Configuration" />
-	  <Reference Include="System.ServiceModel" />
-	  <Reference Include="System.Runtime.Caching" />
-  </ItemGroup>
+	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+		<Reference Include="System.Configuration" />
+		<Reference Include="System.Runtime.Caching" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="5.0.0"/>
+		<PackageReference Include="System.Runtime.Caching" Version="5.0.0"/>
+		<PackageReference Include="System.Reflection.Emit" Version="4.7.0"/>
+	</ItemGroup>
 </Project>
