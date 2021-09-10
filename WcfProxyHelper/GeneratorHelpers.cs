@@ -233,7 +233,7 @@ namespace WcfProxyHelper
         public static MethodInfo FindMethod(this MethodInfo methodInfo, Type type)
         {
             var result = type.FindMembers(
-                MemberTypes.Method | MemberTypes.Property,
+                MemberTypes.Method,
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static,
                 (current, searchCriteria) =>
                 {
@@ -248,39 +248,19 @@ namespace WcfProxyHelper
                     if (current.MemberType == MemberTypes.Method)
                         return EqualsMethod((MethodInfo)current, (MethodInfo)search);
 
-                    if (current.MemberType == MemberTypes.Property)
-                        return EqualsProperty((PropertyInfo)current, (PropertyInfo)search);
-
                     throw new InvalidOperationException("Should not be here: " + current.MemberType);
 
                 }, methodInfo);
 
             if (result.Length == 0)
             {
-                throw new ArgumentException(string.Format("The method '{0}.{1}({2})' does not exist.",
-                       type.FullName, type.Name, string.Join(", ", methodInfo.GetParameters().Select(a => a.Name))));
+                return null;
             }
 
-            Debug.Assert(result.Length == 1, "result.Length == 1", string.Format("Found {0} for {1} in type {2}.", result.Length, methodInfo, type));
+            Debug.Assert(result.Length <= 1 && result.Length > 0, "result.Length <= 1 && result.Length > 0",
+                $"Found {result.Length} for {methodInfo} in type {type}.");
 
             return result[0] as MethodInfo;
-        }
-
-        private static bool EqualsProperty(PropertyInfo current, PropertyInfo search)
-        {
-            if (current.CanRead != search.CanRead || current.CanWrite != search.CanWrite)
-                return false;
-
-            if (current.PropertyType != search.PropertyType)
-                return false;
-
-            if (current.CanRead && !EqualsMethod(current.GetGetMethod(true), search.GetGetMethod(true)))
-                return false;
-
-            if (current.CanWrite && !EqualsMethod(current.GetSetMethod(true), search.GetSetMethod(true)))
-                return false;
-
-            return true;
         }
 
         private static bool EqualsMethod(MethodInfo current, MethodInfo search)
@@ -299,6 +279,9 @@ namespace WcfProxyHelper
 
             return true;
         }
+
+        public static bool IsVoidAndHasNoParameters(this MethodInfo methodInfo)
+            => methodInfo.ReturnType == typeof(void) && methodInfo.GetParameters().Length == 0;
 
         public static void AddDebuggableAttribute(this AssemblyBuilder assemblyBuilder)
         {

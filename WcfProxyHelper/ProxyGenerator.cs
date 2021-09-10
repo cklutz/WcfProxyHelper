@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -51,6 +52,11 @@ namespace WcfProxyHelper
             {
                 assemblyBuilder.Save(assemblyName.Name + ".dll");
             }
+#else
+            if (saveAssembly)
+            {
+                Trace.WriteLine($"Saving assembly to file is not supported. File '{AssemblyOutputDirectory}\\{assemblyName}.dll' not created");
+            }
 #endif
 
             return clientType;
@@ -69,11 +75,10 @@ namespace WcfProxyHelper
                 }
 #if NET48
                 assemblyBuilder = appDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndSave, AssemblyOutputDirectory);
-                saveAssembly = true;
 #else
                 assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
-                saveAssembly = false; // Not supported.
 #endif
+                saveAssembly = true;
             }
             else
             {
@@ -353,21 +358,42 @@ namespace WcfProxyHelper
                 }
             }
 
-#if NET48
-            foreach (var methodInfo in interfaceType.GetMethods().Where(m => m.Name.Contains("UI")))
+            foreach (var methodInfo in interfaceType.GetMethods().Where(m => m.Name.Contains("InitializationUI")))
             {
-                AddPassThroughMethod(typeBuilder, methodInfo);
+                AddPassThroughMethod(typeBuilder, methodInfo, typeBuilder.BaseType.GetNonPublicInstancePropertyGetter("InnerChannel"));
             }
-#endif
         }
 
-        private MethodBuilder AddPassThroughMethod(TypeBuilder typeBuilder, MethodInfo methodInfo)
+        private MethodBuilder AddPassThroughMethod(TypeBuilder typeBuilder, MethodInfo methodInfo, MethodInfo callee)
         {
             var methodBuilder = typeBuilder.GetExplicitInterfaceImplementationBuilder(methodInfo);
             var gen = methodBuilder.GetILGenerator();
             gen.EmitMethodPreamble(methodInfo, DebugSupport);
             gen.Emit(OpCodes.Ldarg_0);
-            gen.EmitMethodCallVirt(methodInfo.FindMethod(typeBuilder.BaseType), DebugSupport);
+            gen.Emit(OpCodes.Call, callee);
+            gen.EmitMethodCallVirt(methodInfo, DebugSupport);
+            gen.EmitMethodPostamble(methodInfo, DebugSupport);
+
+            typeBuilder.DefineMethodOverride(methodBuilder, methodInfo);
+
+            return methodBuilder;
+        }
+
+        private MethodBuilder AddPassThroughMethod(TypeBuilder typeBuilder, MethodInfo methodInfo)
+        {
+            var callee = methodInfo.FindMethod(typeBuilder.BaseType);
+            if (callee == null)
+            {
+                throw new ArgumentException(string.Format("The method '{0}.{1}({2})' does not exist.",
+                    typeBuilder.BaseType, methodInfo.Name,
+                    string.Join(", ", methodInfo.GetParameters().Select(a => a.Name))));
+            }
+
+            var methodBuilder = typeBuilder.GetExplicitInterfaceImplementationBuilder(methodInfo);
+            var gen = methodBuilder.GetILGenerator();
+            gen.EmitMethodPreamble(methodInfo, DebugSupport);
+            gen.Emit(OpCodes.Ldarg_0);
+            gen.Emit(OpCodes.Call, callee);
             gen.EmitMethodPostamble(methodInfo, DebugSupport);
 
             typeBuilder.DefineMethodOverride(methodBuilder, methodInfo);
