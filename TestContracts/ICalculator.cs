@@ -1,4 +1,8 @@
-﻿using System.ServiceModel;
+﻿#if COREWCF
+using CoreWCF;
+#else
+using System.ServiceModel;
+#endif
 
 namespace TestContracts
 {
