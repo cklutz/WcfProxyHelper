@@ -47,17 +47,56 @@ namespace WcfProxyHelper
             var moduleBuilder = CreateModuleBuilder(assemblyBuilder, saveAssembly);
             var clientType = CreateClientType(serviceContract, moduleBuilder);
 
+            if (saveAssembly)
+            {
 #if NET48
-            if (saveAssembly)
-            {
                 assemblyBuilder.Save(assemblyName.Name + ".dll");
-            }
 #else
-            if (saveAssembly)
-            {
-                Trace.WriteLine($"Saving assembly to file is not supported. File '{AssemblyOutputDirectory}\\{assemblyName}.dll' not created");
-            }
+                // Don't take a dedendency on Lokad.ILPack.nupkg. Also, at the time of this writing
+                // the most current version (0.6.1) did caused an exception. Building the repo
+                // (74f8fe7) and referencing the created DLL did work.
+                string directory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                string helper = Path.Combine(directory, "Lokad.ILPack.dll");
+                bool foundHelper = false;
+                
+                if (!File.Exists(helper))
+                {
+                    helper = Environment.GetEnvironmentVariable("WCFPROXY_SAVE_HELPER");
+                    if (!string.IsNullOrEmpty(helper) && File.Exists(helper))
+                    {
+                        foundHelper = true;
+                    }
+                }
+                else
+                {
+                    foundHelper = true;
+                }
+
+                if (foundHelper)
+                {
+                    var ldx = new System.Runtime.Loader.AssemblyLoadContext(helper, true);
+                    try
+                    {
+                        var hass = ldx.LoadFromAssemblyPath(helper);
+                        var genType = hass.GetType("Lokad.ILPack.AssemblyGenerator");
+                        var genMethod = genType.GetMethod("GenerateAssembly", new[] { typeof(Assembly), typeof(string) });
+
+                        var generator = Activator.CreateInstance(genType);
+                        string outputFile = Path.Combine(AssemblyOutputDirectory, assemblyName.Name + ".dll");
+                        genMethod.Invoke(generator, new object[] { assemblyBuilder, outputFile });
+                    }
+                    finally
+                    {
+                        ldx.Unload();
+                    }
+                }
+                else
+                {
+                    Trace.WriteLine($"Saving assembly to file is not supported. " +
+                        $"File '{AssemblyOutputDirectory}\\{assemblyName}.dll' not created");
+                }
 #endif
+            }
 
             return clientType;
         }
